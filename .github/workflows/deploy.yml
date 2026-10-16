@@ -1,0 +1,45 @@
+name: Publish Ramaca in Chiaro
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Configure public Supabase client
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          python - <<'PY'
+          import json, os
+          with open('public/supabase-config.js', 'w', encoding='utf-8') as f:
+              f.write('window.RAMACA_SUPABASE_URL=' + json.dumps(os.environ.get('SUPABASE_URL', '')) + ';\n')
+              f.write('window.RAMACA_SUPABASE_PUBLISHABLE_KEY=' + json.dumps(os.environ.get('SUPABASE_PUBLISHABLE_KEY', '')) + ';\n')
+          PY
+      - name: Upload static app
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: public
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
